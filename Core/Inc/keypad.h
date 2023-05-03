@@ -5,24 +5,6 @@
 #include "main.h"
 #include "i2c-lcd.h"
 
-class keypad {
-private:
-	uint32_t debounce;
-	GPIO_TypeDef **row_ports;
-	GPIO_TypeDef **column_ports;
-	uint16_t *row_pins, *column_pins;
-
-public:
-	uint8_t rows, columns;
-	char **keys;
-
-	keypad(int _rows, int _columns, char _keys[],
-			GPIO_TypeDef* _row_ports[], uint16_t _row_pins[],
-			GPIO_TypeDef* _column_ports[], uint16_t _column_pins[]);
-	char scan(void);
-	char read_keypad(void);
-};
-
 // OUTPUTS
 #define R1_PORT GPIOA
 #define R1_PIN GPIO_PIN_7
@@ -49,7 +31,7 @@ public:
 #define C4_PORT GPIOA
 #define C4_PIN GPIO_PIN_1
 
-#define keypad_delay 100
+#define keypad_delay 200
 
 char read_keypad(void);
 char read_keypad_int(void);

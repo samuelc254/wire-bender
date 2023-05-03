@@ -1,53 +1,7 @@
 #include "keypad.h"
 
-keypad::keypad(int _rows, int _columns, char _keys[],
-		GPIO_TypeDef* _row_ports[], uint16_t _row_pins[],
-		GPIO_TypeDef* _column_ports[], uint16_t _column_pins[]) {
-
-	rows = _rows;
-	columns = _columns;
-
-	row_ports = _row_ports;
-	row_pins = _row_pins;
-	column_ports = _column_ports;
-	column_pins = _column_pins;
-
-	debounce = 150;
-
-	int k = 0;
-	for (int i = 0; i < rows; i++) {
-		HAL_GPIO_WritePin(row_ports[i], row_pins[i], GPIO_PIN_SET);
-		for (int j = 0; j < columns; j++) {
-			keys[i][j] = _keys[k];
-			k++;
-		}
-	}
-
-
-	for (int i = 0; i < rows; i++) {
-		HAL_GPIO_WritePin(row_ports[i], row_pins[i], GPIO_PIN_RESET);
-	}
-
-}
-
-char keypad::scan(void) {
-	for (int i = 0; i < rows; i++) {
-		HAL_GPIO_WritePin(row_ports[i], row_pins[i], GPIO_PIN_SET);
-		for (int j = 0; j < columns; j++) {
-			uint32_t start_time = HAL_GetTick();
-			while (HAL_GPIO_ReadPin(column_ports[j], column_pins[j])) {
-				if (((start_time + debounce) > HAL_GetTick()) && (HAL_GPIO_ReadPin(column_ports[j], column_pins[j]))) {
-					return keys[i][j];
-				}
-			}
-			HAL_GPIO_WritePin(row_ports[i], row_pins[i], GPIO_PIN_RESET);
-		}
-	}
-	return ' ';
-}
-
-char keypad::read_keypad(void) {
-	static unsigned int last_time = 0;
+char read_keypad(void) {
+	static volatile unsigned int last_time = 0;
 	if (uwTick - last_time >= keypad_delay) {
 		last_time = uwTick;
 		/* Make ROW 1 LOW and all other ROWs HIGH */
@@ -186,11 +140,11 @@ char keypad::read_keypad(void) {
 			return 'A';
 		}
 	}
-	return 0;
+	return ' ';
 }
 
 char read_keypad_int(void) {
-	volatile unsigned int last_time = 0;
+	static volatile unsigned int last_time = 0;
 	if (uwTick - last_time >= keypad_delay) {
 		last_time = uwTick;
 		/* Make ROW 1 LOW and all other ROWs HIGH */
@@ -336,15 +290,17 @@ int input_int(char row, char column) {
 	int input_value = 0;
 	char key = read_keypad_int();
 	while (key != 'A') {
-		key = read_keypad_int();
-		if (key < 10) {
+		if (key < 10 && input_value < 9999) {
 			input_value *= 10;
 			input_value += key;
-			key = ' ';
+		} else if (key == 'B') {
+			input_value /= 10;
+		} else {
 			lcd_cursor(row, column);
 			lcd_int(input_value);
-			lcd_string("     ");
+			lcd_string(" ");
 		}
+		key = read_keypad_int();
 	}
 	return input_value;
 }
