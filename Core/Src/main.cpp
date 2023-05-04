@@ -18,14 +18,16 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "dma.h"
 #include "i2c.h"
+#include "tim.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "functions.h"
 #include "i2c-lcd.h"
 #include "keypad.h"
-#include "functions.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -63,139 +65,171 @@ void SystemClock_Config(void);
 /* USER CODE END 0 */
 
 /**
- * @brief  The application entry point.
- * @retval int
- */
-int main(void) {
-	/* USER CODE BEGIN 1 */
+  * @brief  The application entry point.
+  * @retval int
+  */
+int main(void)
+{
+  /* USER CODE BEGIN 1 */
 
-	/* USER CODE END 1 */
+  /* USER CODE END 1 */
 
-	/* MCU Configuration--------------------------------------------------------*/
+  /* MCU Configuration--------------------------------------------------------*/
 
-	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-	HAL_Init();
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
 
-	/* USER CODE BEGIN Init */
+  /* USER CODE BEGIN Init */
 
-	/* USER CODE END Init */
+  /* USER CODE END Init */
 
-	/* Configure the system clock */
-	SystemClock_Config();
+  /* Configure the system clock */
+  SystemClock_Config();
 
-	/* USER CODE BEGIN SysInit */
+  /* USER CODE BEGIN SysInit */
 
-	/* USER CODE END SysInit */
+  /* USER CODE END SysInit */
 
-	/* Initialize all configured peripherals */
-	MX_GPIO_Init();
-	MX_I2C1_Init();
-	/* USER CODE BEGIN 2 */
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_I2C1_Init();
+  MX_DMA_Init();
+  MX_TIM1_Init();
+  /* USER CODE BEGIN 2 */
+    TIM1->CCR1 = 500;
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+    HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_1);
+  /* USER CODE END 2 */
 
-	/* USER CODE END 2 */
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+    HAL_GPIO_WritePin(rele_gnd_GPIO_Port, rele_gnd_Pin, GPIO_PIN_SET);
+    while (HAL_GPIO_ReadPin(end_stop_GPIO_Port, end_stop_Pin)) {
+        HAL_GPIO_WritePin(motor_a_GPIO_Port, motor_a_Pin, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(rele2_GPIO_Port, rele2_Pin, GPIO_PIN_SET);
+    }
 
-	/* Infinite loop */
-	/* USER CODE BEGIN WHILE */
-	while (HAL_GPIO_ReadPin(end_stop_GPIO_Port, end_stop_Pin)) {
-		HAL_GPIO_WritePin(motor_a_GPIO_Port, motor_a_Pin, GPIO_PIN_SET);
-	}
+    encoder_position = 0;
+    HAL_GPIO_WritePin(motor_a_GPIO_Port, motor_a_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(rele2_GPIO_Port, rele2_Pin, GPIO_PIN_RESET);
 
-	encoder_position = 0;
-	HAL_GPIO_WritePin(motor_a_GPIO_Port, motor_a_Pin, GPIO_PIN_RESET);
-	lcd_init();
-	bend(1000, &print_encoder);
+    lcd_init();
 
-	for (;;) {
-		key = read_keypad();
-		lcd_cursor(0, 0);
-		lcd_int(encoder_position);
-		lcd_string("    ");
-		if (key != ' ') {
-			lcd_send_data(key);
-			lcd_string("    ");
-		}
-		if (key == 'A') {
-			HAL_Delay(200);
-			bend(input_int(1, 0), &print_encoder);
-			lcd_clear();
-		}
+    for (;;) {
+        key = read_keypad();
 
-		/* USER CODE END WHILE */
+        lcd_cursor(0, 0);
+        lcd_string("Encoder: ");
+        lcd_int(encoder_position);
+        lcd_string("      ");
+        lcd_cursor(0, 12);
+        lcd_string("tecla:");
+        lcd_cursor(1, 0);
+        lcd_string("pwm1:");
+        lcd_int(TIM1->CCR1);
+        lcd_string("     ");
 
-		/* USER CODE BEGIN 3 */
-	}
-	/* USER CODE END 3 */
+
+        if (key != ' ') {
+            lcd_cursor(0, 19);
+            lcd_send_data(key);
+        }
+        if (key == 'A') {
+            HAL_Delay(200);
+            bend(input_int(2, 0), &print_encoder);
+            lcd_clear();
+        }
+
+        if (key == 'C') {
+            TIM1->CCR1--;
+        }
+        if (key == 'D') {
+            TIM1->CCR1++;
+        }
+        if (key == '*') {
+            TIM1->CCR1 -= 20;
+        }
+        if (key == '#') {
+            TIM1->CCR1 += 20;
+        }
+
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
+    }
+  /* USER CODE END 3 */
 }
 
 /**
- * @brief System Clock Configuration
- * @retval None
- */
-void SystemClock_Config(void) {
-	RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
-	RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
+  * @brief System Clock Configuration
+  * @retval None
+  */
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
-	/** Initializes the RCC Oscillators according to the specified parameters
-	 * in the RCC_OscInitTypeDef structure.
-	 */
-	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-	RCC_OscInitStruct.HSEState = RCC_HSE_ON;
-	RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
-	RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-	RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
-	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
-		Error_Handler();
-	}
-	/** Initializes the CPU, AHB and APB buses clocks
-	 */
-	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
-			| RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
-	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
-	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK) {
-		Error_Handler();
-	}
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
 }
 
 /* USER CODE BEGIN 4 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-	if (GPIO_Pin == encoder_a_Pin)
-		if (HAL_GPIO_ReadPin(encoder_a_GPIO_Port, encoder_a_Pin)
-				== HAL_GPIO_ReadPin(encoder_b_GPIO_Port, encoder_b_Pin))
-			encoder_position--;
-		else
-			encoder_position++;
-	else if (HAL_GPIO_ReadPin(encoder_a_GPIO_Port, encoder_a_Pin)
-			== HAL_GPIO_ReadPin(encoder_b_GPIO_Port, encoder_b_Pin))
-		encoder_position++;
-	else
-		encoder_position--;
+    if (GPIO_Pin == encoder_a_Pin)
+        if (HAL_GPIO_ReadPin(encoder_a_GPIO_Port, encoder_a_Pin) == HAL_GPIO_ReadPin(encoder_b_GPIO_Port, encoder_b_Pin))
+            encoder_position--;
+        else
+            encoder_position++;
+    else if (HAL_GPIO_ReadPin(encoder_a_GPIO_Port, encoder_a_Pin) == HAL_GPIO_ReadPin(encoder_b_GPIO_Port, encoder_b_Pin))
+        encoder_position++;
+    else
+        encoder_position--;
 
-	if (encoder_position == bend_objective) {
-		HAL_GPIO_WritePin(motor_a_GPIO_Port, motor_a_Pin, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(motor_b_GPIO_Port, motor_b_Pin, GPIO_PIN_RESET);
-		bended = 1;
-	}
-
+    if (encoder_position == bend_objective) {
+        HAL_GPIO_WritePin(motor_a_GPIO_Port, motor_a_Pin, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(motor_b_GPIO_Port, motor_b_Pin, GPIO_PIN_RESET);
+        bended = 1;
+    }
 }
 /* USER CODE END 4 */
 
 /**
- * @brief  This function is executed in case of error occurrence.
- * @retval None
- */
-void Error_Handler(void) {
-	/* USER CODE BEGIN Error_Handler_Debug */
-	/* User can add his own implementation to report the HAL error return state */
-	__disable_irq();
-	while (1) {
-	}
-	/* USER CODE END Error_Handler_Debug */
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+void Error_Handler(void)
+{
+  /* USER CODE BEGIN Error_Handler_Debug */
+    /* User can add his own implementation to report the HAL error return state */
+    __disable_irq();
+    while (1) {
+    }
+  /* USER CODE END Error_Handler_Debug */
 }
 
 #ifdef  USE_FULL_ASSERT
@@ -209,8 +243,8 @@ void Error_Handler(void) {
 void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
-  /* User can add his own implementation to report the file name and line number,
-     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+    /* User can add his own implementation to report the file name and line number,
+       ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */

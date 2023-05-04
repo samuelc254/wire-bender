@@ -65,12 +65,10 @@ void Error_Handler(void);
 #define encoder_b_Pin GPIO_PIN_11
 #define encoder_b_GPIO_Port GPIOB
 #define encoder_b_EXTI_IRQn EXTI15_10_IRQn
-#define enable_Pin GPIO_PIN_12
-#define enable_GPIO_Port GPIOB
-#define dir_Pin GPIO_PIN_13
-#define dir_GPIO_Port GPIOB
-#define step_Pin GPIO_PIN_14
-#define step_GPIO_Port GPIOB
+#define rele2_Pin GPIO_PIN_12
+#define rele2_GPIO_Port GPIOB
+#define rele_gnd_Pin GPIO_PIN_14
+#define rele_gnd_GPIO_Port GPIOB
 #define motor_a_Pin GPIO_PIN_15
 #define motor_a_GPIO_Port GPIOB
 #define motor_b_Pin GPIO_PIN_9

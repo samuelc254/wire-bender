@@ -58,7 +58,7 @@ void MX_GPIO_Init(void)
                           |motor_b_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, enable_Pin|dir_Pin|step_Pin|motor_a_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, rele2_Pin|rele_gnd_Pin|motor_a_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : PtPin */
   GPIO_InitStruct.Pin = led_Pin;
@@ -88,8 +88,8 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PBPin PBPin PBPin PBPin */
-  GPIO_InitStruct.Pin = enable_Pin|dir_Pin|step_Pin|motor_a_Pin;
+  /*Configure GPIO pins : PBPin PBPin PBPin */
+  GPIO_InitStruct.Pin = rele2_Pin|rele_gnd_Pin|motor_a_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;

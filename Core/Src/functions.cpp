@@ -39,14 +39,3 @@ void bend(int angle, void (*to_do)(void)) {
 	HAL_GPIO_WritePin(led_GPIO_Port, led_Pin, GPIO_PIN_SET);
 	bended = 0;
 }
-
-void feed(int amount) {
-	if (amount < 0)
-		HAL_GPIO_WritePin(dir_GPIO_Port, dir_Pin, GPIO_PIN_SET);
-	else
-		HAL_GPIO_WritePin(dir_GPIO_Port, dir_Pin, GPIO_PIN_RESET);
-	for (int i = 0; i < (amount * 2); i++) {
-		HAL_GPIO_TogglePin(step_GPIO_Port, step_Pin);
-		HAL_Delay(0);
-	}
-}
