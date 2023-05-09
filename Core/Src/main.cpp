@@ -18,14 +18,15 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "i2c.h"
+
 #include "gpio.h"
+#include "i2c.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "functions.h"
 #include "i2c-lcd.h"
 #include "keypad.h"
-#include "functions.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -46,9 +47,12 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-volatile int encoder_position = 0, bend_objective;
+volatile int encoder_position = 0, bend_objective, maximum;
+int memory_A, memory_B, memory_C, memory_D;
 volatile char bended;
 char key = 0;
+char angle_string[] = "-999.99";
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -67,64 +71,82 @@ void SystemClock_Config(void);
  * @retval int
  */
 int main(void) {
-	/* USER CODE BEGIN 1 */
+    /* USER CODE BEGIN 1 */
 
-	/* USER CODE END 1 */
+    /* USER CODE END 1 */
 
-	/* MCU Configuration--------------------------------------------------------*/
+    /* MCU Configuration--------------------------------------------------------*/
 
-	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-	HAL_Init();
+    /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+    HAL_Init();
 
-	/* USER CODE BEGIN Init */
+    /* USER CODE BEGIN Init */
 
-	/* USER CODE END Init */
+    /* USER CODE END Init */
 
-	/* Configure the system clock */
-	SystemClock_Config();
+    /* Configure the system clock */
+    SystemClock_Config();
 
-	/* USER CODE BEGIN SysInit */
+    /* USER CODE BEGIN SysInit */
 
-	/* USER CODE END SysInit */
+    /* USER CODE END SysInit */
 
-	/* Initialize all configured peripherals */
-	MX_GPIO_Init();
-	MX_I2C1_Init();
-	/* USER CODE BEGIN 2 */
+    /* Initialize all configured peripherals */
+    MX_GPIO_Init();
+    MX_I2C1_Init();
+    /* USER CODE BEGIN 2 */
 
-	/* USER CODE END 2 */
+    /* USER CODE END 2 */
 
-	/* Infinite loop */
-	/* USER CODE BEGIN WHILE */
-	while (HAL_GPIO_ReadPin(end_stop_GPIO_Port, end_stop_Pin)) {
-		HAL_GPIO_WritePin(motor_a_GPIO_Port, motor_a_Pin, GPIO_PIN_SET);
-	}
+    /* Infinite loop */
+    /* USER CODE BEGIN WHILE */
+    HAL_GPIO_WritePin(motor_a_GPIO_Port, motor_a_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(motor_b_GPIO_Port, motor_b_Pin, GPIO_PIN_RESET);
+    HAL_Delay(250);
+    lcd_init();
+    lcd_string("Dobradeira de Tubos");
+    lcd_cursor(2, 4);
+    lcd_string("PRESSIONE A");
 
-	encoder_position = 0;
-	HAL_GPIO_WritePin(motor_a_GPIO_Port, motor_a_Pin, GPIO_PIN_RESET);
-	lcd_init();
-	bend(1000, &print_encoder);
+    while (read_keypad() != 'A') {
+    }
 
-	for (;;) {
-		key = read_keypad();
-		lcd_cursor(0, 0);
-		lcd_int(encoder_position);
-		lcd_string("    ");
-		if (key != ' ') {
-			lcd_send_data(key);
-			lcd_string("    ");
-		}
-		if (key == 'A') {
-			HAL_Delay(200);
-			bend(input_int(1, 0), &print_encoder);
-			lcd_clear();
-		}
+    lcd_cursor(2, 2);
+    lcd_string("buscando sensor");
+    while (HAL_GPIO_ReadPin(end_stop_GPIO_Port, end_stop_Pin)) {
+        HAL_GPIO_WritePin(motor_a_GPIO_Port, motor_a_Pin, GPIO_PIN_SET);
+    }
+    encoder_position = 0;
+    HAL_GPIO_WritePin(motor_a_GPIO_Port, motor_a_Pin, GPIO_PIN_RESET);
+    lcd_clear();
+    refresh_display_text();
 
-		/* USER CODE END WHILE */
+    for (;;) {
+        key = read_keypad();
+        refresh_display_vars();
 
-		/* USER CODE BEGIN 3 */
-	}
-	/* USER CODE END 3 */
+        if (key == 'A') {
+            memory_A = 1700;  // apagar depois
+            lcd_string_on("Objetivo:", 2, 0);
+            convert_to_angle(memory_A);
+            lcd_string(angle_string);
+            lcd_string("   ");
+            bend(memory_A, NULL);
+            bend(0, NULL);
+            lcd_init();
+            refresh_display_text();
+            lcd_string_on("Atingido:", 2, 0);
+            convert_to_angle(maximum);
+            lcd_string_on(angle_string, 2, 9);
+            lcd_string("   ");
+            maximum = 0;
+        }
+
+        /* USER CODE END WHILE */
+
+        /* USER CODE BEGIN 3 */
+    }
+    /* USER CODE END 3 */
 }
 
 /**
@@ -132,56 +154,56 @@ int main(void) {
  * @retval None
  */
 void SystemClock_Config(void) {
-	RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
-	RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
+    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
-	/** Initializes the RCC Oscillators according to the specified parameters
-	 * in the RCC_OscInitTypeDef structure.
-	 */
-	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-	RCC_OscInitStruct.HSEState = RCC_HSE_ON;
-	RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
-	RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-	RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
-	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
-		Error_Handler();
-	}
-	/** Initializes the CPU, AHB and APB buses clocks
-	 */
-	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
-			| RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
-	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
-	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+    /** Initializes the RCC Oscillators according to the specified parameters
+     * in the RCC_OscInitTypeDef structure.
+     */
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+    RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+    RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
+    RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+    RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
+    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
+        Error_Handler();
+    }
+    /** Initializes the CPU, AHB and APB buses clocks
+     */
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+    RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+    RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK) {
-		Error_Handler();
-	}
+    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK) {
+        Error_Handler();
+    }
 }
 
 /* USER CODE BEGIN 4 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-	if (GPIO_Pin == encoder_a_Pin)
-		if (HAL_GPIO_ReadPin(encoder_a_GPIO_Port, encoder_a_Pin)
-				== HAL_GPIO_ReadPin(encoder_b_GPIO_Port, encoder_b_Pin))
-			encoder_position--;
-		else
-			encoder_position++;
-	else if (HAL_GPIO_ReadPin(encoder_a_GPIO_Port, encoder_a_Pin)
-			== HAL_GPIO_ReadPin(encoder_b_GPIO_Port, encoder_b_Pin))
-		encoder_position++;
-	else
-		encoder_position--;
+    if (GPIO_Pin == encoder_a_Pin)
+        if (HAL_GPIO_ReadPin(encoder_a_GPIO_Port, encoder_a_Pin) == HAL_GPIO_ReadPin(encoder_b_GPIO_Port, encoder_b_Pin))
+            encoder_position--;
+        else
+            encoder_position++;
+    else if (HAL_GPIO_ReadPin(encoder_a_GPIO_Port, encoder_a_Pin) == HAL_GPIO_ReadPin(encoder_b_GPIO_Port, encoder_b_Pin))
+        encoder_position++;
+    else
+        encoder_position--;
 
-	if (encoder_position == bend_objective) {
-		HAL_GPIO_WritePin(motor_a_GPIO_Port, motor_a_Pin, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(motor_b_GPIO_Port, motor_b_Pin, GPIO_PIN_RESET);
-		bended = 1;
-	}
+    if (encoder_position == bend_objective) {
+        HAL_GPIO_WritePin(motor_a_GPIO_Port, motor_a_Pin, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(motor_b_GPIO_Port, motor_b_Pin, GPIO_PIN_RESET);
+        bended = 1;
+    }
 
+    if (maximum < encoder_position) {
+        maximum = encoder_position;
+    }
 }
 /* USER CODE END 4 */
 
@@ -190,28 +212,26 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
  * @retval None
  */
 void Error_Handler(void) {
-	/* USER CODE BEGIN Error_Handler_Debug */
-	/* User can add his own implementation to report the HAL error return state */
-	__disable_irq();
-	while (1) {
-	}
-	/* USER CODE END Error_Handler_Debug */
+    /* USER CODE BEGIN Error_Handler_Debug */
+    /* User can add his own implementation to report the HAL error return state */
+    __disable_irq();
+    while (1) {
+    }
+    /* USER CODE END Error_Handler_Debug */
 }
 
-#ifdef  USE_FULL_ASSERT
+#ifdef USE_FULL_ASSERT
 /**
-  * @brief  Reports the name of the source file and the source line number
-  *         where the assert_param error has occurred.
-  * @param  file: pointer to the source file name
-  * @param  line: assert_param error line source number
-  * @retval None
-  */
-void assert_failed(uint8_t *file, uint32_t line)
-{
-  /* USER CODE BEGIN 6 */
-  /* User can add his own implementation to report the file name and line number,
-     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
-  /* USER CODE END 6 */
+ * @brief  Reports the name of the source file and the source line number
+ *         where the assert_param error has occurred.
+ * @param  file: pointer to the source file name
+ * @param  line: assert_param error line source number
+ * @retval None
+ */
+void assert_failed(uint8_t* file, uint32_t line) {
+    /* USER CODE BEGIN 6 */
+    /* User can add his own implementation to report the file name and line number,
+       ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+    /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
-
